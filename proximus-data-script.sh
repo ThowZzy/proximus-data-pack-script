@@ -45,6 +45,8 @@ serviceID=$(curl -s 'https://www.proximus.be/rest/products-aggregator/user-produ
               -X GET -H "Cookie: iiamsid=$cookie_value" \
               | jq -r '.FLS.inPackProducts[0].products[] | select(.technicalName == "internet") | .accessNumber')
 
+pids=()
+
 #Curl command in async + logging
 execute_async() {
   local i=$1
@@ -59,6 +61,7 @@ execute_async() {
         echo "Result ($i/$num_executions) : $(echo "$result" | jq -r '.validationResult.status // "Failed.. (Create an issue on github for this one)"')"
       fi
     ) &
+  pids[$i]="$!"
 }
 
 #Request a pack X times
@@ -67,9 +70,4 @@ for ((i = 1; i <= num_executions; i++)); do
   execute_async $i
 done
 
-#Wait for all requests to finish
-completed=0
-while [[ $completed -lt $num_executions ]]; do
-  wait -n  # Wait for any background process to finish
-  completed=$((completed + 1))
-done
+wait "${pids[@]}"  # Wait for all PIDs in the pids array (wait for all curl commands to finish)
