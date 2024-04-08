@@ -45,11 +45,29 @@ serviceID=$(curl -s 'https://www.proximus.be/rest/products-aggregator/user-produ
               -X GET -H "Cookie: iiamsid=$cookie_value" \
               | jq -r '.FLS.inPackProducts[0].products[] | select(.technicalName == "internet") | .accessNumber')
 
-# Request a PACK x times
-for ((i = 1; i <= num_executions; i++)); do
-    echo "Requesting 300GB... ($i/$num_executions)"
-    echo -n "Result: "
-    curl -s "https://www.proximus.be/rest/shopping-basket/product/FI?serviceId=$serviceID" -X POST -H 'Content-Type: application/json' \
+
+execute_async() {
+  local i=$1
+  curl -s "https://www.proximus.be/rest/shopping-basket/product/FI?serviceId=$serviceID" -X POST -H 'Content-Type: application/json' \
     --data-raw '{"actions":[{"name":"MyProximusConfirmAction","parameters":{"MPC_UUID":"KIIGH"},"type":"serverSide","dependsOnSubStepId":false,"dependsOnOtherFieldsWithSameId":false}],"configuration":{},"cpvComponent":{"mpcUuid":"KIIGH","chargeEvent":"PR","chargeCode":"KETKR","action":"PROVIDE"}}' \
-    -H "Cookie: iiamsid=$cookie_value" | jq -r '.validationResult.status'
+    -H "Cookie: iiamsid=$cookie_value"  | (
+      result="$(cat)"
+      if [[ -z "$result" ]]; then
+        echo "Result ($i/$num_executions) : Failed"
+      else
+        # Process non-empty output with jq
+        echo "Result ($i/$num_executions) : $(echo "$result" | jq -r '.validationResult.status // "failed"')"
+      fi
+    ) &
+}
+
+for ((i = 1; i <= num_executions; i++)); do
+  echo "Requesting 300GB... ($i/$num_executions)"
+  execute_async $i
+done
+
+completed=0
+while [[ $completed -lt $num_executions ]]; do
+  wait -n  # Wait for any background process to finish
+  completed=$((completed + 1))
 done
