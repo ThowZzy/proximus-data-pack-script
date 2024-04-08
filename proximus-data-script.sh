@@ -53,10 +53,10 @@ execute_async() {
     -H "Cookie: iiamsid=$cookie_value"  | (
       result="$(cat)"
       if [[ -z "$result" ]]; then
-        echo "Result ($i/$num_executions) : Failed"
+        echo "Result ($i/$num_executions) : Failed.. (Wrong cookie?)"
       else
         # Process non-empty output with jq
-        echo "Result ($i/$num_executions) : $(echo "$result" | jq -r '.validationResult.status // "failed"')"
+        echo "Result ($i/$num_executions) : $(echo "$result" | jq -r '.validationResult.status // "Failed.. (Create an issue on github for this one)"')"
       fi
     ) &
 }
